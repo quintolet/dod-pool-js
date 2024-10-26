@@ -71,4 +71,4 @@ Required body in JSON:
 ```
 
 [miner-js]: https://github.com/DOD-Blockchain/miner-js
-[dod-worker-js]: https://github.com/quintolet/dod-worker-js
+[dod-worker-rs]: https://github.com/quintolet/dod-worker-rs
