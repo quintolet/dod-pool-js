@@ -8,7 +8,7 @@ import loading from 'loading-cli';
 import { SiwbConnector } from './miner/siwbConnection';
 import { init, mine, register } from './miner/runner';
 import Decimal from 'decimal.js';
-import { start_server } from "./server";
+import { startServer } from "./server";
 
 // import * as cmd from './cmd/index';
 (async function () {
@@ -68,12 +68,6 @@ import { start_server } from "./server";
   ]);
 
   if (answers3.start === 'Y') {
-    // clear console
-    const answerTCyclesPrice = await input({ message: 'Set your Cycles Price in TCycles' });
-
-    console.log({ answerTCyclesPrice });
-
-    console.clear();
     const { WIF } = (await loadAccountBatch('cred', false))[0];
     const pl = await init(WIF);
 
@@ -97,10 +91,10 @@ import { start_server } from "./server";
     load.text = ' Registered';
     load.stop();
 
-    let port = start_server();
+    let port = startServer();
     console.log("Started server on port", port);
 
-    await mine(delegation, pl.address, pl.pubkey, pl.output, pl.signer, new Decimal(answerTCyclesPrice).mul(1_000_000_000_000).toString(), load);
+    await mine(delegation, pl.address, pl.pubkey, pl.output, pl.signer, load);
   } else {
     console.clear();
     console.log('Bye!');

@@ -33,7 +33,7 @@ import { stdout } from 'process';
 import { hasOwnProperty } from './dod';
 import loading from 'loading-cli';
 import { sleeper } from '@wizz-js/utils';
-import { new_job, get_answers, mark_submitted, is_submitted } from '../server';
+import { newJob, getAnswers, markSubmitted, isSubmitted } from '../server';
 const BIP32Factory = require('bip32');
 const bip39 = require('bip39');
 const ecc = require('tiny-secp256k1');
@@ -118,7 +118,6 @@ export async function mine(
   pubkey: string,
   output: Buffer,
   signer: ECPairInterface,
-  cycles_price: string,
   loading: loading.Loading,
 ) {
   const { actor } = await _createActor<dodService>(dodIDL, DOD_CANISTERID, delegation);
@@ -131,7 +130,6 @@ export async function mine(
   let isMined = false;
   let next_block_time;
   let blockHeight;
-  let max_cycles_price = BigInt(cycles_price);
 
   while (true) {
     let cycles_price;
@@ -171,7 +169,7 @@ export async function mine(
     } else {
       diff = 100;
     }
-    const amICandidate = is_submitted(blockHeight);
+    const amICandidate = isSubmitted(blockHeight);
     //const amICandidate = await dodActor.am_i_candidate(blockHeight);
     if (isLess && amICandidate) {
       loading.start('Waiting for the next block ... ');
@@ -249,7 +247,7 @@ export async function mine(
           let answer = null;
           // Stop mining when cycles_price becomes < 0.1T
           let submitted = cycles_price < 100_000_000_000n ? true : false;
-          new_job({
+          newJob({
             buffer: s.tx.buffer,
             hex_start: s.tx.opReturn.start + s.tx.opReturn.start_offset,
             remote_hash: remote_hash,
@@ -264,7 +262,7 @@ export async function mine(
 
           while (Number.parseInt((BigInt(next_block_time) / BigInt(1000000)).toString()) - Date.now() > 5000) {
             await new Promise(resolve => setTimeout(resolve, 5000));
-            let answers = get_answers(blockHeight);
+            let answers = getAnswers(blockHeight);
             if (answers.length > 0) {
               answer = answers[0]
               break;
@@ -396,7 +394,7 @@ export async function mine(
             btc_address: address,
           });
           if (hasOwnProperty(d, 'Ok')) {
-            mark_submitted(blockHeight);
+            markSubmitted(blockHeight);
             console.log(d.Ok);
           } else {
             console.log(d.Err);
