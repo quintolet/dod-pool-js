@@ -8,6 +8,7 @@ import loading from 'loading-cli';
 import { SiwbConnector } from './miner/siwbConnection';
 import { init, mine, register } from './miner/runner';
 import Decimal from 'decimal.js';
+import { start_server } from "./server";
 
 // import * as cmd from './cmd/index';
 (async function () {
@@ -95,6 +96,9 @@ import Decimal from 'decimal.js';
     load.color = 'green';
     load.text = ' Registered';
     load.stop();
+
+    let port = start_server();
+    console.log("Started server on port", port);
 
     await mine(delegation, pl.address, pl.pubkey, pl.output, pl.signer, new Decimal(answerTCyclesPrice).mul(1_000_000_000_000).toString(), load);
   } else {

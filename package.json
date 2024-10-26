@@ -66,6 +66,7 @@
     "js-sha256": "^0.11.0",
     "loading-cli": "^1.1.2",
     "ora": "^8.1.0",
+    "server": "^1.0.41",
     "tiny-secp256k1": "^2.2.3",
     "tslib": "^2.6.2",
     "varuint-bitcoin": "^2.0.0",
