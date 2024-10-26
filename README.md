@@ -30,8 +30,8 @@ DOD requires all miners to give a cycles price when submitting work, and only th
 This mining pool uses the following strategy:
 
 - Take the median of the none-zero winning bids in the last 20 blocks.
-- Skip the current round if it is too small (e.g. < 0.1 TC).
-- Otherwise, add in some random variance and make a bid.
+- Skip the current round if the median is too small (e.g. < 0.1 TC).
+- Otherwise, add in some random variance when making a bid.
 
 Ideas and PRs of other strategies are welcome!
 

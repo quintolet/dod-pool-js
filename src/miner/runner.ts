@@ -257,7 +257,6 @@ export async function mine(
             post_hex: bitwork.post_hex,
             next_block_time: Number(next_block_time / 1000000n),
             block_height: Number(blockHeight),
-            submitted: submitted,
           });
           process.stdout.clearLine(0);
           process.stdout.cursorTo(0);

@@ -44,10 +44,11 @@ export function start_server() {
 }
 
 export function new_job(job) {
-  current_job = job;
-  current_answers = {};
   let line = JSON.stringify(job) + "\n";
   fs.appendFileSync(LOGFILE, line, "utf8");
+  job["submitted"] = false;
+  current_job = job;
+  current_answers = {};
 }
 
 export function get_answers(height: number) {
