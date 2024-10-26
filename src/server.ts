@@ -1,5 +1,5 @@
 import * as server from "server";
-import fs from 'fs';
+import fs from "fs";
 
 var current_job = {};
 var current_answers = {};
@@ -8,22 +8,29 @@ const LOGFILE = "logs/mining.log";
 
 function currentHeight() {
   if ("block_height" in current_job) {
-    return current_job.block_height
+    return current_job.block_height;
   }
 }
 
 function getJob(ctx) {
-    return JSON.stringify(current_job);
+  return JSON.stringify(current_job);
 }
 
 function postAnswer(ctx) {
   // miner_id has to be 4-byte hex string
-  var miner_id = "miner-id" in ctx["headers"] ? ctx["headers"]["miner-id"] : null;
-  if (!(/^([a-z0-9-]){1,}$/.test(miner_id))) {
+  var miner_id =
+    "miner-id" in ctx["headers"] ? ctx["headers"]["miner-id"] : null;
+  if (!/^([a-z0-9-]){1,}$/.test(miner_id)) {
     miner_id = "2vxsx-fae"; // anonymous principal id
   }
   let answer = ctx.data;
-  if ("block_height" in answer && "nonce" in answer && answer.block_height == currentHeight() && miner_id && !(miner_id in current_answers)) {
+  if (
+    "block_height" in answer &&
+    "nonce" in answer &&
+    answer.block_height == currentHeight() &&
+    miner_id &&
+    !(miner_id in current_answers)
+  ) {
     current_answers[miner_id] = answer.nonce;
   }
   return "";
@@ -68,12 +75,13 @@ export function isSubmitted(height: number) {
 export function markSubmitted(height: number) {
   if (currentHeight() == height) {
     for (var miner_id in current_answers) {
-      let line = JSON.stringify({
-        time: Date.now(),
-        block_height: height,
-        miner_id,
-        nonce: current_answers[miner_id],
-      }) + "\n";
+      let line =
+        JSON.stringify({
+          time: Date.now(),
+          block_height: height,
+          miner_id,
+          nonce: current_answers[miner_id],
+        }) + "\n";
       fs.appendFileSync(LOGFILE, line, "utf8");
     }
     current_job["submitted"] = true;
