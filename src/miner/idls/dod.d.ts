@@ -23,6 +23,13 @@ export interface BlockData {
   cycle_burned: bigint;
   rewards: bigint;
 }
+export interface MinerBlockData {
+  difficulty: Bitwork;
+  submit_time: bigint;
+  winner: boolean;
+  cycles_price: bigint;
+  block_height: bigint;
+}
 export interface BlockSigs {
   reveal_tx: Array<number>;
   commit_tx: Array<number>;
@@ -160,7 +167,7 @@ export interface _SERVICE {
   get_history_miner_candidates: ActorMethod<[bigint], Result_8>;
   get_last_block: ActorMethod<[], [] | [[bigint, BlockData]]>;
   get_ledger_wasm: ActorMethod<[], [] | [Array<number>]>;
-  get_user_detail: ActorMethod<[], [] | [UserDetail]>;
+  get_mining_history_for_miners : ActorMethod<[string, bigint, bigint], Array<MinerBlockData>>;
   get_user_orders_by_blocks: ActorMethod<[bigint, bigint, UserType], UserBlockOrderRes>;
   get_user_subaccount: ActorMethod<[Principal], Array<number>>;
   is_miner: ActorMethod<[string], [] | [MinerInfo]>;

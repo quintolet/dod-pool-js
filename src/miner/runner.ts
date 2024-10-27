@@ -33,7 +33,7 @@ import { stdout } from 'process';
 import { hasOwnProperty } from './dod';
 import loading from 'loading-cli';
 import { sleeper } from '@wizz-js/utils';
-import { newJob, getAnswer, markSubmitted, isSubmitted } from '../server';
+import { newJob, getAnswer, markSubmitted, isSubmitted, setActor, totalRewardsInBlockRange } from '../server';
 const BIP32Factory = require('bip32');
 const bip39 = require('bip39');
 const ecc = require('tiny-secp256k1');
@@ -121,8 +121,10 @@ export async function mine(
   loading: loading.Loading,
 ) {
   const { actor } = await _createActor<dodService>(dodIDL, DOD_CANISTERID, delegation);
+  setActor(actor, address);
   dodActor = actor;
 
+  console.log("total rewards from block 10000 to 11000 = ", await totalRewardsInBlockRange(10000, 11000));
   const feeRate = 2;
   const network = bitcoin.networks.bitcoin;
   let remote_hash;

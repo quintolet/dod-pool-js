@@ -68,6 +68,13 @@ export const idlFactory = ({ IDL }) => {
     'cycle_burned' : IDL.Nat,
     'rewards' : IDL.Nat64,
   });
+  const MinerBlockData = IDL.Record({
+    'difficulty' : Bitwork,
+    'submit_time' : IDL.Nat64,
+    'winner' : IDL.Bool,
+    'cycles_price' : IDL.Nat,
+    'block_height' : IDL.Nat64,
+  });
   const DodCanisters = IDL.Record({
     'ledger' : IDL.Principal,
     'archive' : IDL.Principal,
@@ -194,6 +201,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_ledger_wasm' : IDL.Func([], [IDL.Opt(IDL.Vec(IDL.Nat8))], ['query']),
+    'get_mining_history_for_miners' : IDL.Func(
+        [IDL.Text, IDL.Nat64, IDL.Nat64],
+        [IDL.Vec(MinerBlockData)],
+        ['query'],
+      ),
     'get_user_detail' : IDL.Func([], [IDL.Opt(UserDetail)], ['query']),
     'get_user_orders_by_blocks' : IDL.Func(
         [IDL.Nat64, IDL.Nat64, UserType],
