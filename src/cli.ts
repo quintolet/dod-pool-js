@@ -61,7 +61,7 @@ import { loadLogs, startServer } from "./server";
   const answers3 = await inquirer.prompt([
     {
       name: 'start',
-      message: `We will start minging, confirm??`,
+      message: `We will start the mining pool, confirm??`,
       type: 'list',
       choices: ['Y', 'N'],
     },

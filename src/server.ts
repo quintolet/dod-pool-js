@@ -187,7 +187,7 @@ function processEvent(obj) {
     // Compute and update miner contribution for current round (keep the max)
     let miner_id = obj["miner_id"];
     let nonce = obj["nonce"];
-    let contribution = estimate_contribution(current_job, obj.nonce);
+    let contribution = estimateContribution(current_job, obj.nonce);
     let contributions =
       miner_id in current_contributions ? current_contributions[miner_id] : [];
     let answers = miner_id in current_answers ? current_answers[miner_id] : [];
@@ -212,7 +212,7 @@ function processEvent(obj) {
 
 // Estimate the contribution of solving the hashing puzzle.
 // Return a floating point number between 0 and 1.
-function estimate_contribution(job, nonce: string) {
+export function estimateContribution(job, nonce: string) {
   let b = Buffer.from(job.buffer, "hex");
   let hex = Buffer.from(nonce, "hex");
   b.set(hex, job.hex_start);
@@ -228,15 +228,12 @@ function estimate_contribution(job, nonce: string) {
   }
   let post = Number.parseInt(hash.substring(matched, matched + 1), 16);
   let job_post = Number.parseInt(job.post_hex, 16);
-  let effort =
-    (2n ** BigInt((pre - matched) * 4) * BigInt(job_post + 1)) /
-    BigInt(Math.min(post, job_post) + 1);
-  /*
-  console.log(
-    `user ${hash} job ${job_hash} matched = ${matched} pre = ${pre} post = ${job_post}`,
-  );
-  */
-  return 1 / Number(effort);
+  let effort = 2n ** BigInt((pre - matched) * 4) * 1000n;
+  if (matched == pre) {
+    effort *= 2n * BigInt(job_post + 1);
+    effort /= BigInt(Math.min(post, job_post) + 1);
+  }
+  return 2000 / Number(effort);
 }
 
 function longestCommonPrefix(strs) {
