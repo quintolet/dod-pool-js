@@ -190,9 +190,11 @@ function estimate_contribution(job, nonce: string) {
   let effort =
     (2n ** BigInt((pre - matched) * 4) * BigInt(job_post + 1)) /
     BigInt(Math.min(post, job_post) + 1);
+  /*
   console.log(
     `user ${hash} job ${job_hash} matched = ${matched} pre = ${pre} post = ${job_post}`,
   );
+  */
   return 1 / Number(effort);
 }
 
