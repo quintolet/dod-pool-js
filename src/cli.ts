@@ -8,7 +8,7 @@ import loading from 'loading-cli';
 import { SiwbConnector } from './miner/siwbConnection';
 import { init, mine, register } from './miner/runner';
 import Decimal from 'decimal.js';
-import { startServer } from "./server";
+import { loadLogs, startServer } from "./server";
 
 // import * as cmd from './cmd/index';
 (async function () {
@@ -71,7 +71,7 @@ import { startServer } from "./server";
     const { WIF } = (await loadAccountBatch('cred', false))[0];
     const pl = await init(WIF);
 
-    const load = loading('Connecting Network!').start();
+    let load = loading('Connecting Network!').start();
 
     const id = await SiwbConnector.connect(pl.signer, pl.address);
 
@@ -89,6 +89,10 @@ import { startServer } from "./server";
 
     load.color = 'green';
     load.text = ' Registered';
+    load.stop();
+
+    load = loading('Loading mining logs...').start();
+    await loadLogs();
     load.stop();
 
     let port = startServer();

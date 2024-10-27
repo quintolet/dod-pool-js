@@ -33,7 +33,7 @@ import { stdout } from 'process';
 import { hasOwnProperty } from './dod';
 import loading from 'loading-cli';
 import { sleeper } from '@wizz-js/utils';
-import { newJob, getAnswers, markSubmitted, isSubmitted } from '../server';
+import { newJob, getAnswer, markSubmitted, isSubmitted } from '../server';
 const BIP32Factory = require('bip32');
 const bip39 = require('bip39');
 const ecc = require('tiny-secp256k1');
@@ -261,8 +261,8 @@ export async function mine(
           process.stdout.write("waiting for job " + blockHeight);
 
           while (Number.parseInt((BigInt(next_block_time) / BigInt(1000000)).toString()) - Date.now() > 5000) {
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            let answers = getAnswers(blockHeight);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            let answers = getAnswer(blockHeight);
             if (answers.length > 0) {
               answer = answers[0]
               break;

@@ -8,10 +8,10 @@ A DOD mining pool based off the [miner-js] implementation.
 - [x] Bid cycles price automatically.
 - [x] Track worker contributions.
   - [x] Keep logs
-  - [ ] Verify worker contribution
-  - [ ] Accounting
+  - [x] Verify worker contribution
+  - [x] Accounting
 - [ ] Show a stats page.
-- [ ] Distribute miner rewards.
+- [ ] Distribute mining rewards.
 
 **Quick Start**
 
@@ -35,12 +35,22 @@ This mining pool uses the following strategy:
 
 Ideas and PRs of other strategies are welcome!
 
+**Mining contribution**
+
+Miners can submit solutions that gives partial match, which can increase the miner's overall contribution.
+The better match a miner can find, the greater the contribution.
+The mining contribution of each solution ranges from 0 to 1, where 1 represents a full solution.
+
+Mining contributions are accumulated for each miner.
+For each round, the pool will take only the top 15 submissions from a miner and add them to its overall contribution.
+
+Note that once a full solution is found for a round, late submissions will not be credited.
+
 **Endpoints**
 
 A worker fetches the current job by `GET /job`.
 
-If the current one is already marked as "submitted", it is wasteful to work on it.
-In this case the worker should wait until the `next_block_time` and get the new job.
+Sample response:
 
 ```
 {
@@ -49,11 +59,13 @@ In this case the worker should wait until the `next_block_time` and get the new 
   "remote_hash": "...",             // target sha-256 hash that is expected to match
   "pre": 8,                         // number of hex digit to prefix match in the remote_hash
   "post_hex": "5",                  // hex digit to match after the prefix
-  "next_block_time": 1729664582963, // when the next block is expected (in ms)
+  "next_block_time": 1729664582963, // next block time (UNIX time in milliseconds)
   "block_height": 15871,            // block height
   "submitted": false,               // whether a matching answer has already been submitted
 }
 ```
+
+If the a job is already marked as "submitted", the worker should wait until the `next_block_time` to get a new job.
 
 A worker submits answers by `POST /answer`.
 
@@ -63,10 +75,19 @@ Required headers:
 * `miner-id: XXXXX`, where `XXXXX` should be the miner's principal that receives the rewards.
 
 Required body in JSON:
+
 ```
 {
   "block_height": 121,              // job block_height
   "nonce": "...",                   // 16-byte nonce in hex string.
+}
+```
+
+Sample response:
+
+```
+{
+  "contribution": 0.000244140625    // contribution of the submission
 }
 ```
 
