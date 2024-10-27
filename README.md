@@ -37,14 +37,14 @@ Ideas and PRs of other strategies are welcome!
 
 **Mining contribution**
 
-Miners can submit solutions that gives partial match, which can increase the miner's overall contribution.
+Miners can submit solutions that give partial match, which can increase the miner's overall contribution.
 The better match a miner can find, the greater the contribution.
-The mining contribution of each solution ranges from 0 to 1, where 1 represents a full solution.
+The mining contribution of each solution ranges from 0 to 1, where 1 corresponds to a full solution.
 
 Mining contributions are accumulated for each miner.
 For each round, the pool will take only the top 15 submissions from a miner and add them to its overall contribution.
 
-Note that once a full solution is found for a round, late submissions will not be credited.
+Note that once a full solution is found for a given round, additional submissions will not be credited.
 
 **Endpoints**
 
