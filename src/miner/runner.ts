@@ -124,7 +124,6 @@ export async function mine(
   setActor(actor, address);
   dodActor = actor;
 
-  console.log("total rewards from block 10000 to 11000 = ", await totalRewardsInBlockRange(10000, 11000));
   const feeRate = 2;
   const network = bitcoin.networks.bitcoin;
   let remote_hash;
