@@ -6,13 +6,18 @@ import readline from "readline";
 import assert from "assert";
 
 const PORT = 3030;
-const LOGFILE = "logs/events.log";
+const LOGDIR = "./logs";
+const LOGFILE_NAME = "events.log";
+const LOGFILE = LOGDIR + "/" + LOGFILE_NAME;
+const LOGFILE_ROUNDS_LIMIT = 1000;
+const LOGFILE_INDEX_MAX_ZEROS = 6;
 
 var current_job = {};
 var total_contributions = {};
 var current_contributions = {};
 var current_answers = {};
 var current_answer = null;
+var log_rounds = 0;
 
 function currentHeight() {
   if ("block_height" in current_job) {
@@ -76,8 +81,13 @@ export function startServer() {
 
 export function newJob(job) {
   logContributions();
+  if (log_rounds >= LOGFILE_ROUNDS_LIMIT) {
+    rotateLogs();
+    log_rounds = 0;
+  }
   let line = JSON.stringify(job) + "\n";
-  fs.appendFileSync(LOGFILE, line, "utf8");
+  fs.appendFileSync(LOGFILE, line, "utf-8");
+  log_rounds += 1;
   job["submitted"] = false;
   processEvent(job);
 }
@@ -111,8 +121,39 @@ export async function loadLogs() {
     for await (const line of rl) {
       const obj = JSON.parse(line);
       if (obj) {
+        if ("buffer" in obj && "block_height" in obj) {
+          log_rounds += 1;
+        }
         processEvent(obj);
       }
+    }
+  }
+}
+
+function rotateLogs() {
+  let files = fs.readdirSync("./logs");
+  let logfiles = files.filter((name) => name.startsWith(LOGFILE_NAME));
+  logfiles = logfiles.sort();
+  let maxidx = 0;
+  let i = logfiles.length;
+  while (i > 0) {
+    i -= 1;
+    let lastfile = logfiles.pop();
+    let match = lastfile.match(/^.*_([0-9]*)$/);
+    if (match && match[1] && Number.parseInt(match[1])) {
+      maxidx = Number.parseInt(match[1]);
+      break;
+    }
+  }
+  while (true) {
+    let nextidx = "0".repeat(LOGFILE_INDEX_MAX_ZEROS) + (maxidx + 1);
+    nextidx = nextidx.substring(nextidx.length - LOGFILE_INDEX_MAX_ZEROS);
+    let filename = LOGDIR + "/" + LOGFILE_NAME + "_" + nextidx;
+    if (fs.existsSync(filename)) {
+      maxidx += 1;
+    } else {
+      fs.renameSync(LOGFILE, filename);
+      break;
     }
   }
 }
@@ -122,7 +163,7 @@ function logContributions() {
     for (var i in current_answers[miner_id]) {
       let answer = current_answers[miner_id][i];
       let line = JSON.stringify(answer) + "\n";
-      fs.appendFileSync(LOGFILE, line, "utf8");
+      fs.appendFileSync(LOGFILE, line, "utf-8");
     }
   }
 }
