@@ -243,7 +243,7 @@ export async function mine(
 
         const s = resolver_v3('mine', fundingKeypair, cb, txResult.revealNeed, fundingUtxo, network, { script: output, value: txResult.change });
 
-        while (!isMined && Number.parseInt((BigInt(next_block_time) / BigInt(1000000)).toString()) - Date.now() > 5000) {
+        while (!isMined && Number.parseInt((BigInt(next_block_time) / BigInt(1000000)).toString()) - Date.now() > 2000) {
           let b = Buffer.from(s.tx.buffer, 'hex');
           let answer = null;
           // Stop mining when cycles_price becomes < 0.1T
@@ -261,7 +261,7 @@ export async function mine(
           process.stdout.cursorTo(0);
           process.stdout.write("waiting for job " + blockHeight);
 
-          while (Number.parseInt((BigInt(next_block_time) / BigInt(1000000)).toString()) - Date.now() > 5000) {
+          while (Number.parseInt((BigInt(next_block_time) / BigInt(1000000)).toString()) - Date.now() > 2000) {
             await new Promise(resolve => setTimeout(resolve, 1000));
             let answers = getAnswer(blockHeight);
             if (answers.length > 0) {
