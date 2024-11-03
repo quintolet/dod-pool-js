@@ -7,7 +7,7 @@
     "build:swc": "rm -rf dist && swc src --out-dir dist",
     "build": "tsc --project './tsconfig.json'",
     "build:2": "tsc --build",
-    "start": "rm -rf dist && pnpm run build:swc && NODE_PORT=3006 NODE_ENV=production node --experimental-specifier-resolution=node  ./dist/main.js",
+    "reward": "rm -rf dist && pnpm run build:swc && node ./dist/reward.js",
     "miner": "rm -rf dist && pnpm run build:swc && node ./dist/cli.js",
     "benchmark": "rm -rf dist && pnpm run build:swc && node ./dist/benchmarks.js",
     "watch:2": "tsc --watch",

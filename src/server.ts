@@ -1,3 +1,4 @@
+import { Principal } from "@dfinity/principal";
 import * as bitcoin from "bitcoinjs-lib";
 import { reverseBuffer } from "bitcoinjs-lib/src/bufferutils";
 import { ActorSubclass } from "@dfinity/agent";
@@ -15,6 +16,7 @@ const LOGFILE_ROUNDS_LIMIT = 1000;
 const LOGFILE_INDEX_MAX_ZEROS = 6;
 const MIN_CYCLES_DISTRIBUTION = 1_000_000n;
 const MININGN_POOL_REWARDS_SHARE = 2n; // 2 percent
+const ANONYMOUS_ID = "2vxsx-fae";
 
 let pool_address = "";
 let dodActor: ActorSubclass<dodService>;
@@ -42,9 +44,16 @@ const getJob = (state) => (ctx) => {
 
 const postAnswer = (state) => (ctx) => {
   // miner_id has to be 4-byte hex string
-  var miner_id = "miner-id" in ctx.headers ? ctx.headers["miner-id"] : null;
-  if (!/^([a-z0-9-]){1,}$/.test(miner_id)) {
-    miner_id = "2vxsx-fae"; // anonymous principal id
+  var miner_id =
+    "miner-id" in ctx.headers
+      ? ctx.headers["miner-id"]
+      : "minder-id" in ctx.data
+        ? ctx.data["miner-id"]
+        : null;
+  try {
+    miner_id = Principal.fromText(miner_id).toString();
+  } catch (_) {
+    return `{error: "The submitted miner-id '${miner_id}' is not a valid principal id."}`;
   }
   let answer = ctx.data;
   if (
@@ -66,8 +75,39 @@ const postAnswer = (state) => (ctx) => {
     if (contribution == 1) {
       state.current_answer = obj.nonce;
     }
-    return "{contribution: " + contribution + "}";
+    return `{contribution: ${contribution}}`;
   }
+};
+
+const getStatus = (state) => (ctx) => {
+  let height = currentHeight(state);
+  if (!height) {
+    return {};
+  }
+  let rounds_until_next_distribution =
+    LOGFILE_ROUNDS_LIMIT - (height - state.starting_height);
+  let rewards = {
+    rounds_until_next_distribution,
+    accumulated_cycle_rewards: 0,
+  };
+  let previous = {
+    block_height: height - 1,
+    hashrate: 0,
+    total_contributions: 0,
+  };
+  let current = {
+    block_height: height,
+    hashrate: 0,
+    total_contributions: 0,
+  };
+  let miners = [];
+  let status = {
+    rewards,
+    current,
+    previous,
+    miners,
+  };
+  return JSON.stringify(status);
 };
 
 export function startServer() {
@@ -77,7 +117,7 @@ export function startServer() {
     logContributions(state);
     process.exit(0);
   });
-  const { get, post } = server.router;
+  const { get, post, error } = server.router;
   // Launch server
   server.default(
     {
@@ -85,7 +125,12 @@ export function startServer() {
       security: { csrf: false },
       parser: { json: { limit: "1kb" } },
     },
-    [get("/job", getJob(state)), post("/answer", postAnswer(state))],
+    [
+      get("/job", getJob(state)),
+      get("/status", getStatus(state)),
+      post("/answer", postAnswer(state)),
+      error("", (_) => null),
+    ],
   );
   return PORT;
 }
@@ -243,7 +288,7 @@ function processEvent(obj, state) {
     }
     return contribution;
   } else if ("distributed" in obj) {
-    state.distributed[obj.miner_id] = obj.distributed;
+    state.distributed[obj.miner_id] = BigInt(obj.distributed);
   }
   return 0;
 }
@@ -285,7 +330,7 @@ function longestCommonPrefix(strs) {
   return a1.substring(0, i);
 }
 
-async function distributeRewards(logfile) {
+export async function distributeRewards(logfile, verbose = false) {
   let state = {
     current_job: {},
     total_contributions: {},
@@ -305,25 +350,65 @@ async function distributeRewards(logfile) {
   let distributed: { [key: string]: bigint } = state.distributed;
   let contributions: { [key: string]: number } = state.total_contributions;
   let miners = Object.keys(contributions);
-  let total = Object.values(contributions).reduce((x, y) => x + y, 0);
-  if (total <= 0) {
-    return;
+  let total_contributions = Object.values(contributions).reduce(
+    (x, y) => x + y,
+    0,
+  );
+  if (total_contributions <= 0) {
+    return [total_contributions, rewards, 0, 0];
   }
-  let shares = Object.values(contributions).map((x) => x / total);
+  let shares = Object.values(contributions).map((x) => x / total_contributions);
   let to_distribute = rewards - (rewards * MININGN_POOL_REWARDS_SHARE) / 100n;
+  let previously_distributed = 0n;
+  let newly_distributed = 0n;
+  let args = [];
   for (var i = 0; i < miners.length; i++) {
     let miner = miners[i];
-    let share = BigInt(shares[i] * 1_000_000_000);
+    if (verbose) {
+      console.log(`miner = ${miner} share = ${100 * shares[i]}%`);
+    }
+    let share = BigInt(Math.floor(shares[i] * 1_000_000_000));
     let cycles = (to_distribute * share) / 1_000_000_000n;
     if (miner in distributed && cycles <= distributed[miner]) {
       cycles -= distributed[miner];
+      previously_distributed += distributed[miner];
     }
-    if (cycles >= MIN_CYCLES_DISTRIBUTION) {
-      // TODO:
-      // 1. distribution cycles to miner
-      // 2. log successful distribution
+    if (cycles >= MIN_CYCLES_DISTRIBUTION && miner != ANONYMOUS_ID) {
+      try {
+        let pid = Principal.fromText(miner);
+        newly_distributed += cycles;
+        args.push([Principal.fromText(miner), cycles]);
+      } catch (_) {
+        console.log(
+          "Invalid principal:",
+          miner,
+          " unable to distribute cycles ",
+          cycles,
+        );
+      }
     }
   }
+  try {
+    let result = await dodActor.inner_transfer_cycles(args);
+    if (result && "Ok" in result) {
+      for (var i = 0; i < args.length; i++) {
+        let miner_id = args[i][0].toString();
+        let distributed = args[i][1].toString();
+        let line = JSON.stringify({ miner_id, distributed }) + "\n";
+        fs.appendFileSync(logfile, line, "utf-8");
+      }
+    } else {
+      console.log("Error calling inner_transfer_cycles:", result);
+    }
+  } catch (err) {
+    console.log("Error calling inner_transfer_cycles:", err);
+  }
+  return [
+    total_contributions,
+    rewards,
+    previously_distributed,
+    newly_distributed,
+  ];
 }
 
 export async function totalRewardsInBlockRange(starting_height, ending_height) {

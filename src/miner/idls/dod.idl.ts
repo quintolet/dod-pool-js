@@ -217,6 +217,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Nat8)],
         ['query'],
       ),
+    'inner_transfer_cycles' : IDL.Func(
+        [IDL.Vec(IDL.Tuple(IDL.Principal, IDL.Nat))],
+        [Result],
+        []
+    ),
     'is_miner' : IDL.Func([IDL.Text], [IDL.Opt(MinerInfo)], ['query']),
     'load_sigs_by_height' : IDL.Func(
         [IDL.Nat64],

@@ -170,6 +170,7 @@ export interface _SERVICE {
   get_mining_history_for_miners : ActorMethod<[string, bigint, bigint], Array<MinerBlockData>>;
   get_user_orders_by_blocks: ActorMethod<[bigint, bigint, UserType], UserBlockOrderRes>;
   get_user_subaccount: ActorMethod<[Principal], Array<number>>;
+  inner_transfer_cycles: ActorMethod<[Array<[Principal,bigint]>], Result>;
   is_miner: ActorMethod<[string], [] | [MinerInfo]>;
   load_sigs_by_height: ActorMethod<[bigint], [] | [BlockSigs]>;
   miner_submit_hash: ActorMethod<[MinerSubmitPayload], Result_9>;

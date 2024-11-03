@@ -11,7 +11,7 @@ A DOD mining pool based off the [miner-js] implementation.
   - [x] Verify worker contribution
   - [x] Accounting
 - [ ] Show a stats page.
-- [ ] Distribute mining rewards.
+- [x] Distribute mining rewards.
 
 **Quick Start**
 
