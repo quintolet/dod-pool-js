@@ -120,12 +120,10 @@ const getStats = (state) => async (ctx) => {
     block_height,
     contributions: state.current_contributions,
   };
-  let miners = [];
   let stats = {
     pool,
     rewards,
     current_round,
-    miners,
   };
   return server.reply
     .type("application/json; charset=utf-8")
