@@ -17,6 +17,7 @@ const LOGFILE_INDEX_MAX_ZEROS = 6;
 const MIN_CYCLES_DISTRIBUTION = 1_000_000n;
 const MININGN_POOL_REWARDS_SHARE = 2n; // 2 percent
 const ANONYMOUS_ID = "2vxsx-fae";
+const MAX_PAST_HASHRATES = 60;
 
 let pool_principal;
 let pool_address = "";
@@ -30,8 +31,7 @@ function new_state() {
     current_contributions: {},
     current_answers: {},
     current_answer: null,
-    past_contributions: [],
-    past_answers: [],
+    past_hashrates: [],
     log_rounds: 0,
     starting_height: 0,
     distributed: {},
@@ -90,17 +90,22 @@ const postAnswer = (state) => (ctx) => {
 };
 
 const getStats = (state) => async (ctx) => {
-  let height = currentHeight(state);
-  if (!height) {
+  let block_height = currentHeight(state);
+  if (!block_height) {
     return {};
   }
   let rounds_until_next_distribution =
     LOGFILE_ROUNDS_LIMIT > state.log_rounds
       ? LOGFILE_ROUNDS_LIMIT - state.log_rounds
       : 0;
+  let hashrate = state.past_hashrates.reduce((x, y) => x + y, 0n);
+  if (state.past_hashrates.length > 0) {
+    hashrate /= BigInt(state.past_hashrates.length);
+  }
   let pool = {
     principal: pool_principal.toString(),
     address: pool_address,
+    estimated_hashrate: hashrate,
   };
   let undistributed_cycle_rewards = sumBlocksRewards(
     mined_blocks_since_last_distribution,
@@ -109,23 +114,17 @@ const getStats = (state) => async (ctx) => {
     rounds_until_next_distribution,
     mined_blocks_since_last_distribution,
     undistributed_cycle_rewards,
+    accumulated_contributions: state.accumulated_contributions,
   };
-  let previous = {
-    block_height: height - 1,
-    hashrate: 0,
-    total_contributions: 0,
-  };
-  let current = {
-    block_height: height,
-    hashrate: 0,
-    total_contributions: 0,
+  let current_round = {
+    block_height,
+    contributions: state.current_contributions,
   };
   let miners = [];
   let stats = {
     pool,
     rewards,
-    current,
-    previous,
+    current_round,
     miners,
   };
   return server.reply
@@ -156,6 +155,8 @@ export function startServer() {
       get("/job", getJob(state)),
       get("/stats", getStats(state)),
       post("/answer", postAnswer(state)),
+      get("/favicoon.ico", (_) => 404),
+      (_) => 404,
     ],
   );
   return PORT;
@@ -227,6 +228,7 @@ async function readLogsFrom(filename, state) {
           state.starting_height = obj.block_height;
         }
         state.log_rounds += 1;
+        processEvent({ commit: true }, state);
       }
       processEvent(obj, state);
     }
@@ -283,6 +285,13 @@ function processEvent(obj, state) {
       state.accumulated_contributions[miner_id] =
         contribution +
         state.current_contributions[miner_id].reduce((x, y) => x + y, 0);
+    }
+    let hashrate = estimateHashRate(state);
+    if (hashrate != 0n) {
+      state.past_hashrates.push(hashrate);
+    }
+    if (state.past_hashrates.length > MAX_PAST_HASHRATES) {
+      state.past_hashrates = state.past_hashrates.slice(1);
     }
     // Reset current_contributions and current_answers
     state.current_contributions = {};
@@ -485,4 +494,18 @@ async function doesUserExist(miner_id) {
     console.log(err);
   }
   return miner_exists;
+}
+
+function estimateHashRate(state) {
+  let job = state.current_job;
+  if (Object.keys(job).length == 0) {
+    return 0;
+  }
+  let contributions: number[][] = Object.values(state.current_contributions);
+  let post = Number.parseInt(job.post_hex, 16);
+  let base = 2n ** (4n * BigInt(job.pre)) * (1n + BigInt(post));
+  let total_contribution = contributions
+    .map((arr) => arr.reduce((x, y) => x + y, 0))
+    .reduce((x, y) => x + y, 0);
+  return (base * BigInt(Math.floor(total_contribution * 1000))) / 1000n / 3000n;
 }
