@@ -21,7 +21,7 @@ pnpm install && pnpm run miner
 
 By default the pool will listen on port 3030.
 
-Workers (e.g. those who run [dod-worker-rs]) can connect by specifying the pool's ip address and port number.
+Workers (e.g. those who run [dod-worker-rs]) can connect by specifying the pool's IP address and port number.
 
 **Bidding strategy**
 
@@ -46,6 +46,30 @@ For each round, the pool will take only the top 15 submissions from a miner and 
 
 Note that once a full solution is found for a given round, additional submissions will not be credited.
 
+**Reward distribution**
+
+Mining rewards (in terms of cycles) are typically distributed when the current log file (`logs/events.log`) is rotated, which by default is every 1000 rounds, or every 16.6 hours.
+When a rotation happens, the current log file is archived and becomes the next numbered file as in `events.log_000001`, `events_log_000002`, and so on.
+Once a new archived log is created, rewards accumulated during the logged blocks will be distributed to miners proportional to their contributions logged in the same file.
+
+The following settings can be customized by editing `src/server.ts`:
+
+1. `MININGN_POOL_REWARDS_SHARE` is set to 2%, which is the mining fee that goes to the operator.
+2. `LOGFILE_ROUNDS_LIMIT` is set to 1000, which is the number rounds between log rotations.
+3. `MIN_CYCLES_DISTRIBUTION` is set to `1_000_000`, which is the minimum cycles to distributed to a miner. Miners who earn less than that during a period do not get any rewards.
+
+Distribution can also be triggered manually should automatic distribution failed:
+
+```
+pnpm run reward [logfile]
+```
+
+It also displays a bit more information about the total reward in the logged period, and which miner gets what percentage.
+
+Please note that the command should only be run on archived logs, not the current log.
+Successful reward distributions are also appended to the same archived log file.
+This prevents rewards from being distributed twice, so it is safe to run the above command more than once.
+
 **Endpoints**
 
 A worker fetches the current job by `GET /job`.
@@ -65,7 +89,7 @@ Sample response:
 }
 ```
 
-If the a job is already marked as "submitted", the worker should wait until the `next_block_time` to get a new job.
+If a job is already marked as "submitted", the worker should wait until the `next_block_time` to get a new job.
 
 A worker submits answers by `POST /answer`.
 
