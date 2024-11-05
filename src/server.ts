@@ -21,16 +21,20 @@ const ANONYMOUS_ID = "2vxsx-fae";
 let pool_address = "";
 let dodActor: ActorSubclass<dodService>;
 
-var server_state = {
-  current_job: {},
+function new_state() {
+  return {
+    current_job: {},
   accumulated_contributions: {},
-  current_contributions: {},
-  distributed: {},
-  current_answers: {},
-  current_answer: null,
-  log_rounds: 0,
-  starting_height: 0,
-};
+    current_contributions: {},
+    current_answers: {},
+    current_answer: null,
+    log_rounds: 0,
+    starting_height: 0,
+    distributed: {},
+  };
+}
+
+var server_state = new_state();
 
 function currentHeight(state) {
   if ("block_height" in state.current_job) {
@@ -332,16 +336,7 @@ function longestCommonPrefix(strs) {
 }
 
 export async function distributeRewards(logfile, verbose = false) {
-  let state = {
-    current_job: {},
-    accumulated_contributions: {},
-    current_contributions: {},
-    current_answers: {},
-    current_answer: null,
-    log_rounds: 0,
-    starting_height: 0,
-    distributed: {},
-  };
+  let state = new_state();
   await readLogsFrom(logfile, state);
   processEvent({ commit: true }, state);
   let rewards: bigint = await totalRewardsInBlockRange(
