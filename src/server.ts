@@ -116,9 +116,16 @@ const getStats = (state) => async (ctx) => {
     undistributed_cycle_rewards,
     accumulated_contributions: state.accumulated_contributions,
   };
+  let contributions = {};
+  for (var miner in state.current_contributions) {
+    contributions[miner] = state.current_contributions[miner].reduce(
+      (x, y) => x + y,
+      0,
+    );
+  }
   let current_round = {
     block_height,
-    contributions: state.current_contributions,
+    contributions,
   };
   let stats = {
     pool,
