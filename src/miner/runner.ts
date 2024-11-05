@@ -121,7 +121,7 @@ export async function mine(
   loading: loading.Loading,
 ) {
   const { actor } = await _createActor<dodService>(dodIDL, DOD_CANISTERID, delegation);
-  setActor(actor, address);
+  setActor(actor, address, delegation.getPrincipal());
   dodActor = actor;
 
   const feeRate = 2;

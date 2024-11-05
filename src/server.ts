@@ -17,20 +17,28 @@ const LOGFILE_INDEX_MAX_ZEROS = 6;
 const MIN_CYCLES_DISTRIBUTION = 1_000_000n;
 const MININGN_POOL_REWARDS_SHARE = 2n; // 2 percent
 const ANONYMOUS_ID = "2vxsx-fae";
+const MAX_PAST_HASHRATES = 60;
 
+let pool_principal;
 let pool_address = "";
 let dodActor: ActorSubclass<dodService>;
+let mined_blocks_since_last_distribution = [];
 
-var server_state = {
-  current_job: {},
-  accumulated_contributions: {},
-  current_contributions: {},
-  distributed: {},
-  current_answers: {},
-  current_answer: null,
-  log_rounds: 0,
-  starting_height: 0,
-};
+function new_state() {
+  return {
+    current_job: {},
+    accumulated_contributions: {},
+    current_contributions: {},
+    current_answers: {},
+    current_answer: null,
+    past_hashrates: [],
+    log_rounds: 0,
+    starting_height: 0,
+    distributed: {},
+  };
+}
+
+var server_state = new_state();
 
 function currentHeight(state) {
   if ("block_height" in state.current_job) {
@@ -39,7 +47,7 @@ function currentHeight(state) {
 }
 
 const getJob = (state) => (ctx) => {
-  return JSON.stringify(state.current_job);
+  return server.reply.json(state.current_job);
 };
 
 const postAnswer = (state) => (ctx) => {
@@ -53,7 +61,9 @@ const postAnswer = (state) => (ctx) => {
   try {
     miner_id = Principal.fromText(miner_id).toString();
   } catch (_) {
-    return `{error: "The submitted miner-id '${miner_id}' is not a valid principal id."}`;
+    return server.reply.json({
+      error: `The submitted miner-id '${miner_id}' is not a valid principal id.`,
+    });
   }
   let answer = ctx.data;
   if (
@@ -63,7 +73,7 @@ const postAnswer = (state) => (ctx) => {
     answer.block_height == currentHeight(state)
   ) {
     if (isSubmitted(answer.block_height)) {
-      return "{contribution: 0}";
+      return server.reply.json({ contribution: 0 });
     }
     let obj = {
       time: Date.now(),
@@ -75,39 +85,62 @@ const postAnswer = (state) => (ctx) => {
     if (contribution == 1) {
       state.current_answer = obj.nonce;
     }
-    return `{contribution: ${contribution}}`;
+    return server.reply.json({ contribution });
   }
 };
 
-const getStatus = (state) => (ctx) => {
-  let height = currentHeight(state);
-  if (!height) {
+const getStats = (state) => async (ctx) => {
+  let block_height = currentHeight(state);
+  if (!block_height) {
     return {};
   }
   let rounds_until_next_distribution =
-    LOGFILE_ROUNDS_LIMIT - (height - state.starting_height);
+    LOGFILE_ROUNDS_LIMIT > state.log_rounds
+      ? LOGFILE_ROUNDS_LIMIT - state.log_rounds
+      : 0;
+  let hashrate = state.past_hashrates.reduce((x, y) => x + y, 0n);
+  if (state.past_hashrates.length > 0) {
+    hashrate /= BigInt(state.past_hashrates.length);
+  }
+  let pool = {
+    principal: pool_principal.toString(),
+    address: pool_address,
+    estimated_hashrate: hashrate,
+    distribution_interval: LOGFILE_ROUNDS_LIMIT,
+    mining_fee_percent: Number(MININGN_POOL_REWARDS_SHARE),
+  };
+  let undistributed_cycle_rewards = sumBlocksRewards(
+    mined_blocks_since_last_distribution,
+  );
   let rewards = {
     rounds_until_next_distribution,
-    accumulated_cycle_rewards: 0,
+    mined_blocks_since_last_distribution,
+    undistributed_cycle_rewards,
+    accumulated_contributions: state.accumulated_contributions,
   };
-  let previous = {
-    block_height: height - 1,
-    hashrate: 0,
-    total_contributions: 0,
+  let contributions = {};
+  for (var miner in state.current_contributions) {
+    contributions[miner] = state.current_contributions[miner].reduce(
+      (x, y) => x + y,
+      0,
+    );
+  }
+  let current_round = {
+    block_height,
+    contributions,
   };
-  let current = {
-    block_height: height,
-    hashrate: 0,
-    total_contributions: 0,
-  };
-  let miners = [];
-  let status = {
+  let stats = {
+    pool,
     rewards,
-    current,
-    previous,
-    miners,
+    current_round,
   };
-  return JSON.stringify(status);
+  return server.reply
+    .type("application/json; charset=utf-8")
+    .send(
+      JSON.stringify(stats, (key, value) =>
+        typeof value === "bigint" ? value.toString() : value,
+      ),
+    );
 };
 
 export function startServer() {
@@ -127,15 +160,17 @@ export function startServer() {
     },
     [
       get("/job", getJob(state)),
-      get("/status", getStatus(state)),
+      get("/stats", getStats(state)),
       post("/answer", postAnswer(state)),
-      error("", (_) => null),
+      get("/favicoon.ico", (_) => 404),
+      (_) => 404,
     ],
   );
   return PORT;
 }
 
-export function setActor(actor, address) {
+export function setActor(actor, address, principal) {
+  pool_principal = principal;
   pool_address = address;
   dodActor = actor;
 }
@@ -145,6 +180,7 @@ export function newJob(job) {
   logContributions(state);
   if (state.log_rounds >= LOGFILE_ROUNDS_LIMIT) {
     rotateLogs();
+    mined_blocks_since_last_distribution = [];
     state.log_rounds = 0;
     state.accumulated_contributions = {};
   }
@@ -199,6 +235,7 @@ async function readLogsFrom(filename, state) {
           state.starting_height = obj.block_height;
         }
         state.log_rounds += 1;
+        processEvent({ commit: true }, state);
       }
       processEvent(obj, state);
     }
@@ -256,10 +293,23 @@ function processEvent(obj, state) {
         contribution +
         state.current_contributions[miner_id].reduce((x, y) => x + y, 0);
     }
+    let hashrate = estimateHashRate(state);
+    if (hashrate != 0n) {
+      state.past_hashrates.push(hashrate);
+    }
+    if (state.past_hashrates.length > MAX_PAST_HASHRATES) {
+      state.past_hashrates = state.past_hashrates.slice(1);
+    }
     // Reset current_contributions and current_answers
     state.current_contributions = {};
     state.current_answers = {};
     state.current_answer = null;
+    setTimeout(async () => {
+      mined_blocks_since_last_distribution = await getMinedBlocks(
+        state.starting_height,
+        currentHeight(state),
+      );
+    }, 500);
   } else if ("buffer" in obj) {
     state.current_job = obj;
   } else if ("nonce" in obj) {
@@ -332,16 +382,7 @@ function longestCommonPrefix(strs) {
 }
 
 export async function distributeRewards(logfile, verbose = false) {
-  let state = {
-    current_job: {},
-    accumulated_contributions: {},
-    current_contributions: {},
-    current_answers: {},
-    current_answer: null,
-    log_rounds: 0,
-    starting_height: 0,
-    distributed: {},
-  };
+  let state = new_state();
   await readLogsFrom(logfile, state);
   processEvent({ commit: true }, state);
   let rewards: bigint = await totalRewardsInBlockRange(
@@ -419,24 +460,34 @@ export async function distributeRewards(logfile, verbose = false) {
 }
 
 export async function totalRewardsInBlockRange(starting_height, ending_height) {
-  try {
-    let blocks = await dodActor.get_mining_history_for_miners(
-      pool_address,
-      starting_height,
-      ending_height + 1,
-    );
-    let total = 0n;
-    for (var i = 0; i < blocks.length; i++) {
-      let block = blocks[i];
-      if (block.winner) {
-        total += block.cycles_price;
-      }
+  let blocks = await getMinedBlocks(starting_height, ending_height);
+  return sumBlocksRewards(blocks);
+}
+
+function sumBlocksRewards(blocks) {
+  let total = 0n;
+  for (var i = 0; i < blocks.length; i++) {
+    let block = blocks[i];
+    if (block.winner) {
+      total += block.cycles_price;
     }
-    return total;
-  } catch (err) {
-    console.log(err);
-    return 0n;
   }
+  return total;
+}
+
+async function getMinedBlocks(starting_height, ending_height) {
+  if (dodActor && starting_height > 0) {
+    try {
+      return await dodActor.get_mining_history_for_miners(
+        pool_address,
+        starting_height,
+        ending_height + 1,
+      );
+    } catch (err) {
+      console.log(err);
+    }
+  }
+  return [];
 }
 
 async function doesUserExist(miner_id) {
@@ -450,4 +501,18 @@ async function doesUserExist(miner_id) {
     console.log(err);
   }
   return miner_exists;
+}
+
+function estimateHashRate(state) {
+  let job = state.current_job;
+  if (Object.keys(job).length == 0) {
+    return 0;
+  }
+  let contributions: number[][] = Object.values(state.current_contributions);
+  let post = Number.parseInt(job.post_hex, 16);
+  let base = 2n ** (4n * BigInt(job.pre)) * (1n + BigInt(post));
+  let total_contribution = contributions
+    .map((arr) => arr.reduce((x, y) => x + y, 0))
+    .reduce((x, y) => x + y, 0);
+  return (base * BigInt(Math.floor(total_contribution * 1000))) / 1000n / 3000n;
 }
