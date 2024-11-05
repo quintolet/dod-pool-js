@@ -47,7 +47,7 @@ function currentHeight(state) {
 }
 
 const getJob = (state) => (ctx) => {
-  return JSON.stringify(state.current_job);
+  return server.reply.json(state.current_job);
 };
 
 const postAnswer = (state) => (ctx) => {
@@ -61,7 +61,9 @@ const postAnswer = (state) => (ctx) => {
   try {
     miner_id = Principal.fromText(miner_id).toString();
   } catch (_) {
-    return `{error: "The submitted miner-id '${miner_id}' is not a valid principal id."}`;
+    return server.reply.json({
+      error: `The submitted miner-id '${miner_id}' is not a valid principal id.`,
+    });
   }
   let answer = ctx.data;
   if (
@@ -71,7 +73,7 @@ const postAnswer = (state) => (ctx) => {
     answer.block_height == currentHeight(state)
   ) {
     if (isSubmitted(answer.block_height)) {
-      return "{contribution: 0}";
+      return server.reply.json({ contribution: 0 });
     }
     let obj = {
       time: Date.now(),
@@ -83,7 +85,7 @@ const postAnswer = (state) => (ctx) => {
     if (contribution == 1) {
       state.current_answer = obj.nonce;
     }
-    return `{contribution: ${contribution}}`;
+    return server.reply.json({ contribution });
   }
 };
 
@@ -126,9 +128,13 @@ const getStats = (state) => async (ctx) => {
     previous,
     miners,
   };
-  return JSON.stringify(stats, (key, value) =>
-    typeof value === "bigint" ? value.toString() : value,
-  );
+  return server.reply
+    .type("application/json; charset=utf-8")
+    .send(
+      JSON.stringify(stats, (key, value) =>
+        typeof value === "bigint" ? value.toString() : value,
+      ),
+    );
 };
 
 export function startServer() {
