@@ -18,16 +18,20 @@ const MIN_CYCLES_DISTRIBUTION = 1_000_000n;
 const MININGN_POOL_REWARDS_SHARE = 2n; // 2 percent
 const ANONYMOUS_ID = "2vxsx-fae";
 
+let pool_principal;
 let pool_address = "";
 let dodActor: ActorSubclass<dodService>;
+let mined_blocks_since_last_distribution = [];
 
 function new_state() {
   return {
     current_job: {},
-  accumulated_contributions: {},
+    accumulated_contributions: {},
     current_contributions: {},
     current_answers: {},
     current_answer: null,
+    past_contributions: [],
+    past_answers: [],
     log_rounds: 0,
     starting_height: 0,
     distributed: {},
@@ -83,16 +87,26 @@ const postAnswer = (state) => (ctx) => {
   }
 };
 
-const getStatus = (state) => (ctx) => {
+const getStats = (state) => async (ctx) => {
   let height = currentHeight(state);
   if (!height) {
     return {};
   }
   let rounds_until_next_distribution =
-    LOGFILE_ROUNDS_LIMIT - (height - state.starting_height);
+    LOGFILE_ROUNDS_LIMIT > state.log_rounds
+      ? LOGFILE_ROUNDS_LIMIT - state.log_rounds
+      : 0;
+  let pool = {
+    principal: pool_principal.toString(),
+    address: pool_address,
+  };
+  let undistributed_cycle_rewards = sumBlocksRewards(
+    mined_blocks_since_last_distribution,
+  );
   let rewards = {
     rounds_until_next_distribution,
-    accumulated_cycle_rewards: 0,
+    mined_blocks_since_last_distribution,
+    undistributed_cycle_rewards,
   };
   let previous = {
     block_height: height - 1,
@@ -105,13 +119,14 @@ const getStatus = (state) => (ctx) => {
     total_contributions: 0,
   };
   let miners = [];
-  let status = {
+  let stats = {
+    pool,
     rewards,
     current,
     previous,
     miners,
   };
-  return JSON.stringify(status);
+  return JSON.stringify(stats);
 };
 
 export function startServer() {
@@ -131,7 +146,7 @@ export function startServer() {
     },
     [
       get("/job", getJob(state)),
-      get("/status", getStatus(state)),
+      get("/stats", getStats(state)),
       post("/answer", postAnswer(state)),
       error("", (_) => null),
     ],
@@ -139,7 +154,8 @@ export function startServer() {
   return PORT;
 }
 
-export function setActor(actor, address) {
+export function setActor(actor, address, principal) {
+  pool_principal = principal;
   pool_address = address;
   dodActor = actor;
 }
@@ -149,6 +165,7 @@ export function newJob(job) {
   logContributions(state);
   if (state.log_rounds >= LOGFILE_ROUNDS_LIMIT) {
     rotateLogs();
+    mined_blocks_since_last_distribution = [];
     state.log_rounds = 0;
     state.accumulated_contributions = {};
   }
@@ -264,6 +281,12 @@ function processEvent(obj, state) {
     state.current_contributions = {};
     state.current_answers = {};
     state.current_answer = null;
+    setTimeout(async () => {
+      mined_blocks_since_last_distribution = await getMinedBlocks(
+        state.starting_height,
+        currentHeight(state),
+      );
+    }, 500);
   } else if ("buffer" in obj) {
     state.current_job = obj;
   } else if ("nonce" in obj) {
@@ -414,23 +437,31 @@ export async function distributeRewards(logfile, verbose = false) {
 }
 
 export async function totalRewardsInBlockRange(starting_height, ending_height) {
+  let blocks = await getMinedBlocks(starting_height, ending_height);
+  return sumBlocksRewards(blocks);
+}
+
+function sumBlocksRewards(blocks) {
+  let total = 0n;
+  for (var i = 0; i < blocks.length; i++) {
+    let block = blocks[i];
+    if (block.winner) {
+      total += block.cycles_price;
+    }
+  }
+  return total;
+}
+
+async function getMinedBlocks(starting_height, ending_height) {
   try {
-    let blocks = await dodActor.get_mining_history_for_miners(
+    return await dodActor.get_mining_history_for_miners(
       pool_address,
       starting_height,
       ending_height + 1,
     );
-    let total = 0n;
-    for (var i = 0; i < blocks.length; i++) {
-      let block = blocks[i];
-      if (block.winner) {
-        total += block.cycles_price;
-      }
-    }
-    return total;
   } catch (err) {
     console.log(err);
-    return 0n;
+    return [];
   }
 }
 
