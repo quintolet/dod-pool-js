@@ -207,6 +207,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'get_user_detail' : IDL.Func([], [IDL.Opt(UserDetail)], ['query']),
+    'get_user_detail_indexer' : IDL.Func([IDL.Principal], [IDL.Opt(UserDetail)], ['query']),
     'get_user_orders_by_blocks' : IDL.Func(
         [IDL.Nat64, IDL.Nat64, UserType],
         [UserBlockOrderRes],

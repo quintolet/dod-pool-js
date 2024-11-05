@@ -23,7 +23,7 @@ let dodActor: ActorSubclass<dodService>;
 
 var server_state = {
   current_job: {},
-  total_contributions: {},
+  accumulated_contributions: {},
   current_contributions: {},
   distributed: {},
   current_answers: {},
@@ -146,6 +146,7 @@ export function newJob(job) {
   if (state.log_rounds >= LOGFILE_ROUNDS_LIMIT) {
     rotateLogs();
     state.log_rounds = 0;
+    state.accumulated_contributions = {};
   }
   let line = JSON.stringify(job) + "\n";
   fs.appendFileSync(LOGFILE, line, "utf-8");
@@ -245,13 +246,13 @@ function logContributions(state) {
 
 function processEvent(obj, state) {
   if ("commit" in obj) {
-    // Add current_contributions to total_contributions
+    // Add current_contributions to accumulated_contributions
     for (var miner_id in state.current_contributions) {
       let contribution =
-        miner_id in state.total_contributions
-          ? state.total_contributions[miner_id]
+        miner_id in state.accumulated_contributions
+          ? state.accumulated_contributions[miner_id]
           : 0;
-      state.total_contributions[miner_id] =
+      state.accumulated_contributions[miner_id] =
         contribution +
         state.current_contributions[miner_id].reduce((x, y) => x + y, 0);
     }
@@ -333,7 +334,7 @@ function longestCommonPrefix(strs) {
 export async function distributeRewards(logfile, verbose = false) {
   let state = {
     current_job: {},
-    total_contributions: {},
+    accumulated_contributions: {},
     current_contributions: {},
     current_answers: {},
     current_answer: null,
@@ -348,7 +349,8 @@ export async function distributeRewards(logfile, verbose = false) {
     currentHeight(state),
   );
   let distributed: { [key: string]: bigint } = state.distributed;
-  let contributions: { [key: string]: number } = state.total_contributions;
+  let contributions: { [key: string]: number } =
+    state.accumulated_contributions;
   let miners = Object.keys(contributions);
   let total_contributions = Object.values(contributions).reduce(
     (x, y) => x + y,
@@ -373,7 +375,12 @@ export async function distributeRewards(logfile, verbose = false) {
       cycles -= distributed[miner];
       previously_distributed += distributed[miner];
     }
-    if (cycles >= MIN_CYCLES_DISTRIBUTION && miner != ANONYMOUS_ID) {
+    let miner_exists = await doesUserExist(miner);
+    if (!miner_exists) {
+      console.log(
+        `Unable to distribute rewards, non-existent miner account ${miner}`,
+      );
+    } else if (cycles >= MIN_CYCLES_DISTRIBUTION && miner != ANONYMOUS_ID) {
       try {
         let pid = Principal.fromText(miner);
         newly_distributed += cycles;
@@ -430,4 +437,17 @@ export async function totalRewardsInBlockRange(starting_height, ending_height) {
     console.log(err);
     return 0n;
   }
+}
+
+async function doesUserExist(miner_id) {
+  let miner_exists = false;
+  try {
+    let result = await dodActor.get_user_detail_indexer(
+      Principal.fromText(miner_id),
+    );
+    miner_exists = result.length > 0;
+  } catch (err) {
+    console.log(err);
+  }
+  return miner_exists;
 }

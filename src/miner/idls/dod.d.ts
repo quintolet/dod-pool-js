@@ -167,7 +167,9 @@ export interface _SERVICE {
   get_history_miner_candidates: ActorMethod<[bigint], Result_8>;
   get_last_block: ActorMethod<[], [] | [[bigint, BlockData]]>;
   get_ledger_wasm: ActorMethod<[], [] | [Array<number>]>;
-  get_mining_history_for_miners : ActorMethod<[string, bigint, bigint], Array<MinerBlockData>>;
+  get_mining_history_for_miners: ActorMethod<[string, bigint, bigint], Array<MinerBlockData>>;
+  get_user_detail: ActorMethod<[], [UserDetail]>;
+  get_user_detail_indexer: ActorMethod<[Principal], [UserDetail]>;
   get_user_orders_by_blocks: ActorMethod<[bigint, bigint, UserType], UserBlockOrderRes>;
   get_user_subaccount: ActorMethod<[Principal], Array<number>>;
   inner_transfer_cycles: ActorMethod<[Array<[Principal,bigint]>], Result>;
