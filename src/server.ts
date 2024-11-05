@@ -126,7 +126,9 @@ const getStats = (state) => async (ctx) => {
     previous,
     miners,
   };
-  return JSON.stringify(stats);
+  return JSON.stringify(stats, (key, value) =>
+    typeof value === "bigint" ? value.toString() : value,
+  );
 };
 
 export function startServer() {
@@ -148,7 +150,6 @@ export function startServer() {
       get("/job", getJob(state)),
       get("/stats", getStats(state)),
       post("/answer", postAnswer(state)),
-      error("", (_) => null),
     ],
   );
   return PORT;
@@ -453,16 +454,18 @@ function sumBlocksRewards(blocks) {
 }
 
 async function getMinedBlocks(starting_height, ending_height) {
-  try {
-    return await dodActor.get_mining_history_for_miners(
-      pool_address,
-      starting_height,
-      ending_height + 1,
-    );
-  } catch (err) {
-    console.log(err);
-    return [];
+  if (dodActor) {
+    try {
+      return await dodActor.get_mining_history_for_miners(
+        pool_address,
+        starting_height,
+        ending_height + 1,
+      );
+    } catch (err) {
+      console.log(err);
+    }
   }
+  return [];
 }
 
 async function doesUserExist(miner_id) {
