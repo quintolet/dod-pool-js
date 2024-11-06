@@ -106,6 +106,8 @@ const getStats = (state) => async (ctx) => {
     principal: pool_principal.toString(),
     address: pool_address,
     estimated_hashrate: hashrate,
+    distribution_interval: LOGFILE_ROUNDS_LIMIT,
+    mining_fee_percent: Number(MININGN_POOL_REWARDS_SHARE),
   };
   let undistributed_cycle_rewards = sumBlocksRewards(
     mined_blocks_since_last_distribution,
