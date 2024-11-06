@@ -10,7 +10,7 @@ A DOD mining pool based off the [miner-js] implementation.
   - [x] Keep logs
   - [x] Verify worker contribution
   - [x] Accounting
-- [ ] Show a stats page.
+- [x] Show a stats page.
 - [x] Distribute mining rewards.
 
 **Quick Start**
@@ -112,6 +112,31 @@ Sample response:
 ```
 {
   "contribution": 0.000244140625    // contribution of the submission
+}
+```
+
+One can also get pool statistics by `GET /stats`.
+
+Sample response:
+
+```
+{
+  "pool": {
+    "principal": "...",
+    "address": "...",
+    "estimated_hashrate": "1182781307",
+    "distribution_interval": 1000,
+    "mining_fee_percent": 2
+  },
+  "rewards": {
+    "rounds_until_next_distribution": 690,
+    "mined_blocks_since_last_distribution": [ ... ],
+    "undistributed_cycle_rewards": "96664521359",
+    "accumulated_contributions": { .. },
+  "current_round": {
+    "block_height": 36047,
+    "contributions": { .. }
+  }
 }
 ```
 
