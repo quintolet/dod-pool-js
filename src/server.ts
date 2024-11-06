@@ -183,6 +183,7 @@ export function newJob(job) {
     mined_blocks_since_last_distribution = [];
     state.log_rounds = 0;
     state.accumulated_contributions = {};
+    state.starting_height = currentHeight(state);
   }
   let line = JSON.stringify(job) + "\n";
   fs.appendFileSync(LOGFILE, line, "utf-8");
