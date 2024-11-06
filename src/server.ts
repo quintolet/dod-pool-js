@@ -474,7 +474,7 @@ function sumBlocksRewards(blocks) {
 }
 
 async function getMinedBlocks(starting_height, ending_height) {
-  if (dodActor) {
+  if (dodActor && starting_height > 0) {
     try {
       return await dodActor.get_mining_history_for_miners(
         pool_address,
